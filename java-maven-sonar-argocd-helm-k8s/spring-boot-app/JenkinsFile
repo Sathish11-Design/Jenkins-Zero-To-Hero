@@ -20,23 +20,32 @@ pipeline {
       }
     }
     stage('Static Code Analysis') {
-      environment {
-        SONAR_URL = "http://52.19.63.248:9000/"
-      }
-      steps {
-        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh '''
-            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            rm -rf ~/.m2/repository/.cache
-            rm -rf target
-            mvn clean sonar:sonar \
-              -Dsonar.login=$SONAR_AUTH_TOKEN \
-              -Dsonar.host.url=${SONAR_URL} \
-              -Dmaven.resolver.transport=wagon
-          '''
-        }
-      }
+  environment {
+    SONAR_URL = "http://52.19.63.248:9000/"
+  }
+  steps {
+    withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+      sh '''
+        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+        
+        # Use a clean, temporary Maven local repository for this run
+        export MAVEN_OPTS="-Dmaven.repo.local=$(pwd)/.m2_temp"
+
+        # Clear previous target and cache directories
+        rm -rf target
+        rm -rf .m2_temp
+        
+        # Run Sonar scan with explicit Maven transport option
+        mvn clean sonar:sonar \
+          -Dsonar.login=$SONAR_AUTH_TOKEN \
+          -Dsonar.host.url=${SONAR_URL} \
+          -Dmaven.resolver.transport=wagon \
+          -B
+      '''
     }
+  }
+}
+
 
     stage('Build and Push Docker Image') {
       environment {
