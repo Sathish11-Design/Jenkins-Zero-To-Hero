@@ -1,21 +1,19 @@
 pipeline {
     agent {
         docker {
-            image 'sathishwd/maven-abhishek-docker-agent:v1'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket
+            image 'maven:3.9.4-jdk-21' // Maven with Java 21
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
     environment {
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64' // use Java 21
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
         SONAR_URL = "http://52.19.63.248:9000"
-        GIT_USER_NAME = "iam-veeramalla"
+        DOCKER_IMAGE = "sathishwd/ultimate-cicd:${BUILD_NUMBER}"
         GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
+        GIT_USER_NAME = "Sathish11-Design"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 sh 'echo Checkout stage passed'
@@ -26,10 +24,7 @@ pipeline {
         stage('Build and Test') {
             steps {
                 sh 'ls -ltr'
-                sh '''
-                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                    mvn clean package
-                '''
+                sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
             }
         }
 
@@ -45,9 +40,6 @@ pipeline {
         }
 
         stage('Build and Push Docker Image') {
-            environment {
-                DOCKER_IMAGE = "sathishwd/ultimate-cicd:${BUILD_NUMBER}"
-            }
             steps {
                 script {
                     sh '''
@@ -68,6 +60,7 @@ pipeline {
                     sh '''
                         git config user.email "sathishkumarsvskss@gmail.com"
                         git config user.name "Sathish11-Design"
+                        BUILD_NUMBER=${BUILD_NUMBER}
                         sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                         git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                         git commit -m "Update deployment image to version ${BUILD_NUMBER}"
