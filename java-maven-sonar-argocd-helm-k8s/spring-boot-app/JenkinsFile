@@ -8,10 +8,12 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/Sathish11-Design/Jenkins-Zero-To-Hero.git'
+        // Checkout the repo so we are inside a Git directory
+        checkout([$class: 'GitSCM', branches: [[name: 'main']],
+                  userRemoteConfigs: [[url: 'https://github.com/Sathish11-Design/Jenkins-Zero-To-Hero.git']]])
       }
     }
+
     stage('Build and Test') {
       steps {
         sh 'ls -ltr'
@@ -46,11 +48,12 @@ pipeline {
       }
     }
     stage('Update Deployment File') {
-        environment {
-            GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-            GIT_USER_NAME = "iam-veeramalla"
-        }
-        steps {
+    environment {
+        GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
+        GIT_USER_NAME = "iam-veeramalla"
+    }
+    steps {
+        dir('.') { // current workspace is already the repo
             withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                 sh '''
                     git config user.email "sathishkumarsvskss@gmail.com"
@@ -64,5 +67,6 @@ pipeline {
             }
         }
     }
-  }
+}
+
 }
