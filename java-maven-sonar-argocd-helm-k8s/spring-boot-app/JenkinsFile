@@ -39,14 +39,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
                     dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                        sh """
-                            mvn sonar:sonar \
-                                -Dsonar.projectKey=spring-boot-demo \
-                                -Dsonar.projectName='Spring Boot Demo' \
-                                -Dsonar.host.url=${SONAR_URL} \
-                                -Dsonar.login=$SONAR_AUTH_TOKEN \
-                                -Dsonar.qualitygate.wait=true
-                        """
+                        sh 'mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
                     }
                 }
             }
@@ -55,7 +48,7 @@ pipeline {
         stage('Build and Push Docker Image') {
             agent {
                 docker {
-                    image 'docker:24-dind'  // Docker-in-Docker for building images
+                    image 'docker:24-dind'
                     args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
@@ -74,17 +67,38 @@ pipeline {
         stage('Update Deployment File') {
             steps {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                    sh """
-                        cd $WORKSPACE
+                    sh '''
                         git config user.email "sathishkumarsvskss@gmail.com"
                         git config user.name "${GIT_USER_NAME}"
                         sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                         git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                         git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
                         git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                    """
+                    '''
                 }
             }
+        }
+
+        stage('Run Docker Container') {
+            agent {
+                docker {
+                    image 'docker:24-dind'
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                sh '''
+                    docker stop spring-boot-app || true
+                    docker rm spring-boot-app || true
+                    docker run -d --name spring-boot-app -p 9090:9090 ${DOCKER_IMAGE}
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished"
         }
     }
 }
