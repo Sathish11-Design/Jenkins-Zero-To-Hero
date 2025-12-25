@@ -15,10 +15,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Ensure the repo is checked out
-                checkout([$class: 'GitSCM',
-                          branches: [[name: 'main']],
-                          userRemoteConfigs: [[url: 'https://github.com/Sathish11-Design/Jenkins-Zero-To-Hero.git']]])
+                // Checkout the repo in the container workspace
+                checkout scm
             }
         }
 
@@ -66,10 +64,13 @@ pipeline {
                         sh '''
                             git config user.email "sathishkumarsvskss@gmail.com"
                             git config user.name "Sathish11-Design"
+
                             BUILD_NUMBER=${BUILD_NUMBER}
                             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-manifests/deployment.yml
+
                             git add spring-boot-app-manifests/deployment.yml
                             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+
                             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                         '''
                     }
